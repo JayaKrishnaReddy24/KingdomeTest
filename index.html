@@ -11,68 +11,91 @@
 
     <header class="mb-10 text-center">
         <h1 class="text-4xl font-black text-yellow-500 tracking-tighter">KINGDOM PUB</h1>
-        <p class="text-gray-500 mt-2">Live Cloud Database Manager</p>
+        <p class="text-gray-500 mt-2">Event Ticketing System</p>
     </header>
 
-    <div class="max-w-md mx-auto bg-gray-900 p-6 rounded-3xl shadow-2xl border border-gray-800 mb-10">
-        <h2 class="text-xl font-bold mb-4">Add New Event</h2>
-        <input id="eventTitle" type="text" placeholder="Event Name (e.g. Rock Night)" 
+    <div id="adminPanel" class="max-w-md mx-auto bg-gray-900 p-6 rounded-3xl shadow-2xl border border-gray-800 mb-10">
+        <h2 class="text-xl font-bold mb-4 text-yellow-500">Admin Control</h2>
+        
+        <input id="adminPassword" type="password" placeholder="Enter Admin Password" 
+               class="w-full p-4 bg-gray-800 rounded-xl mb-3 border-none focus:ring-2 ring-red-600">
+               
+        <input id="eventTitle" type="text" placeholder="New Event Name" 
                class="w-full p-4 bg-gray-800 rounded-xl mb-4 border-none focus:ring-2 ring-yellow-600">
+               
         <button onclick="addEvent()" class="w-full bg-yellow-600 hover:bg-yellow-500 text-black font-bold py-4 rounded-xl transition-all">
             CREATE EVENT
         </button>
     </div>
 
     <div class="max-w-md mx-auto">
-        <h2 class="text-2xl font-bold mb-6 border-b border-gray-800 pb-2 text-yellow-500">Live Schedule</h2>
+        <h2 class="text-2xl font-bold mb-6 border-b border-gray-800 pb-2 text-yellow-500">Available Events</h2>
         <div id="eventList" class="space-y-4">
-            <p class="text-gray-600 italic">Connecting to cloud...</p>
+            <p class="text-gray-600 italic">Loading events...</p>
         </div>
     </div>
 
     <script>
-        // YOUR DATABASE CONNECTION
+        // 1. YOUR DATABASE CONNECTION
         const URL = 'https://zlprzfbqxzldlchyophw.supabase.co';
-        // Get this from your 'Copy anonymous API key' button in image_82f087.png
-        const KEY = 'PASTE_YOUR_ANON_KEY_HERE'; 
+        const KEY = 'PASTE_YOUR_ANON_KEY_HERE'; // Replace with your actual key
         const _db = supabase.createClient(URL, KEY);
+
+        // 2. SET YOUR SECRET PASSWORD HERE
+        const MY_SECRET = "1234"; // Change this to your preferred password
 
         async function fetchEvents() {
             const { data } = await _db.from('events').select('*').order('created_at', { ascending: false });
             const list = document.getElementById('eventList');
-            list.innerHTML = data.length ? '' : '<p class="text-gray-500">No events found.</p>';
+            list.innerHTML = data.length ? '' : '<p class="text-gray-500">No events currently active.</p>';
+            
             data.forEach(item => {
                 list.innerHTML += `
                 <div class="bg-gray-900 p-5 rounded-2xl border-l-4 border-yellow-600 shadow-md">
                     <h3 class="text-lg font-bold">${item.title}</h3>
                     <div class="mt-4 flex gap-3">
-                        <button onclick="issueTicket('${item.id}', '${item.title}')" class="bg-blue-600 text-xs font-bold px-4 py-2 rounded-lg">ISSUE TICKET</button>
-                        <button onclick="deleteEvent('${item.id}')" class="text-red-500 text-xs px-2">DELETE</button>
+                        <button onclick="issueTicket('${item.id}', '${item.title}')" class="bg-blue-600 text-xs font-bold px-4 py-2 rounded-lg">GET TICKET</button>
+                        <button onclick="deleteEvent('${item.id}')" class="text-red-900 text-[10px] px-2 opacity-30 hover:opacity-100">ADMIN: DELETE</button>
                     </div>
                 </div>`;
             });
         }
 
         async function addEvent() {
-            const input = document.getElementById('eventTitle');
-            if(!input.value) return;
-            await _db.from('events').insert([{ title: input.value }]);
-            input.value = '';
+            const passInput = document.getElementById('adminPassword');
+            const titleInput = document.getElementById('eventTitle');
+
+            // Security Check
+            if (passInput.value !== MY_SECRET) {
+                alert("Incorrect Admin Password!");
+                return;
+            }
+
+            if(!titleInput.value) return;
+
+            const { error } = await _db.from('events').insert([{ title: titleInput.value }]);
+            if (error) alert(error.message);
+            
+            titleInput.value = '';
+            passInput.value = ''; 
             fetchEvents();
         }
 
         async function deleteEvent(id) {
-            if(confirm("Delete event?")) {
+            const check = prompt("Admin Password Required to Delete:");
+            if(check === MY_SECRET) {
                 await _db.from('events').delete().eq('id', id);
                 fetchEvents();
+            } else {
+                alert("Unauthorized!");
             }
         }
 
         async function issueTicket(eId, eTitle) {
-            const name = prompt(`Guest for ${eTitle}:`);
+            const name = prompt(`Enter Guest Name for ${eTitle}:`);
             if(!name) return;
             const { data } = await _db.from('tickets').insert([{ event_id: eId, customer_name: name }]).select();
-            if(data) alert(`✅ TICKET CREATED\n\nGuest: ${data[0].customer_name}\nUnique ID: ${data[0].id}`);
+            if(data) alert(`✅ TICKET CREATED\n\nGuest: ${data[0].customer_name}\nUnique Ticket ID: ${data[0].id}`);
         }
 
         fetchEvents();
