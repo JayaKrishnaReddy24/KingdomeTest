@@ -3,135 +3,165 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kingdom Pub | Event Manager</title>
+    <title>Kingdom Pub | Admin</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <style>
+        @media print {
+            body * { visibility: hidden; }
+            #ticket-section, #ticket-section * { visibility: visible; }
+            #ticket-section { position: absolute; left: 0; top: 0; width: 100%; }
+            .no-print { display: none; }
+        }
+    </style>
 </head>
-<body class="bg-black text-gray-100 min-h-screen p-4 font-sans">
+<body class="bg-black text-white font-sans">
 
-    <header class="mb-8 text-center pt-6">
-        <h1 class="text-4xl font-black text-yellow-500 tracking-tighter">KINGDOM PUB</h1>
-        <p class="text-gray-500 mt-2 uppercase text-xs tracking-[0.2em]">Secure Event Ticketing</p>
+    <header class="p-6 border-b border-gray-800 flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-yellow-500">KINGDOM PUB</h1>
+        <button onclick="location.reload()" class="text-sm bg-gray-900 px-4 py-2 rounded">Home</button>
     </header>
 
-    <div id="adminPanel" class="max-w-md mx-auto bg-gray-900 p-6 rounded-3xl shadow-2xl border border-gray-800 mb-10">
-        <h2 class="text-lg font-bold mb-4 text-yellow-500 flex items-center gap-2">
-            <span class="w-2 h-2 bg-red-600 rounded-full animate-pulse"></span> Admin Control
-        </h2>
-        <input id="adminPassword" type="password" placeholder="Admin Password" 
-               class="w-full p-4 bg-gray-800 rounded-xl mb-3 border-none focus:ring-2 ring-yellow-600">
-        <input id="eventTitle" type="text" placeholder="Event Name (e.g. DJ Night)" 
-               class="w-full p-4 bg-gray-800 rounded-xl mb-4 border-none focus:ring-2 ring-yellow-600">
-        <button onclick="addEvent()" class="w-full bg-yellow-600 hover:bg-yellow-500 text-black font-black py-4 rounded-xl transition-all">
-            PUBLISH EVENT
-        </button>
-    </div>
-
-    <div class="max-w-md mx-auto">
-        <h2 class="text-xl font-bold mb-6 border-b border-gray-800 pb-2">Live Schedule</h2>
-        <div id="eventList" class="space-y-4 text-center">
-            <p class="text-gray-600 animate-pulse">Connecting to Cloud...</p>
-        </div>
-    </div>
-
-    <div id="paymentModal" class="hidden fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center z-50 p-6">
-        <div class="bg-gray-900 p-8 rounded-[2rem] border border-yellow-600 text-center w-full max-w-sm shadow-2xl">
-            <h2 class="text-2xl font-black text-yellow-500 mb-1">SCAN TO PAY</h2>
-            <p id="ticketGuestName" class="text-white font-bold mb-4 text-lg"></p>
-            
-            <div class="bg-white p-4 rounded-2xl inline-block mb-4">
-                <canvas id="qrcodeCanvas"></canvas>
+    <main class="max-w-2xl mx-auto p-6">
+        
+        <div id="admin-section" class="space-y-6">
+            <h2 class="text-xl font-semibold">Create New Event</h2>
+            <div class="space-y-4 bg-gray-900 p-6 rounded-lg border border-gray-800">
+                <div>
+                    <label class="block text-sm text-gray-400">Event Name</label>
+                    <input type="text" id="eventName" placeholder="e.g. Saturday Night Live" class="w-full bg-black border border-gray-700 p-3 rounded mt-1 focus:border-yellow-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400">Entry Price (₹)</label>
+                    <input type="number" id="eventPrice" placeholder="500" class="w-full bg-black border border-gray-700 p-3 rounded mt-1 focus:border-yellow-500 outline-none">
+                </div>
+                <button onclick="publishEvent()" id="publishBtn" class="w-full bg-yellow-500 text-black font-bold py-3 rounded hover:bg-yellow-400 transition">
+                    PUBLISH EVENT
+                </button>
             </div>
-            
-            <p class="text-gray-400 text-sm mb-6 px-4">Pay **100/-** via any UPI app to confirm your entry.</p>
-            
-            <button onclick="closeModal()" class="w-full bg-white text-black font-bold py-3 rounded-xl">
-                I HAVE PAID
-            </button>
+
+            <div class="mt-10">
+                <h2 class="text-xl font-semibold mb-4">Live Events</h2>
+                <div id="events-container" class="grid gap-4">
+                    <p class="text-gray-500">Loading events...</p>
+                </div>
+            </div>
         </div>
-    </div>
+
+        <div id="ticket-section" class="hidden">
+            <div class="bg-white text-black p-8 rounded-none border-4 border-double border-black max-w-sm mx-auto shadow-2xl">
+                <div class="text-center border-b-2 border-black pb-4 mb-4">
+                    <h3 class="text-lg font-black italic">KINGDOM PUB</h3>
+                    <p class="text-xs tracking-widest uppercase">Official Entry Pass</p>
+                </div>
+                
+                <div class="space-y-4 py-4">
+                    <div>
+                        <p class="text-[10px] uppercase font-bold text-gray-500">Event</p>
+                        <h1 id="ticketTitle" class="text-2xl font-bold leading-tight">EVENT NAME</h1>
+                    </div>
+                    <div class="flex justify-between">
+                        <div>
+                            <p class="text-[10px] uppercase font-bold text-gray-500">Price</p>
+                            <p id="ticketPriceDisplay" class="font-bold text-lg">₹0.00</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-[10px] uppercase font-bold text-gray-500">Date</p>
+                            <p id="ticketDate" class="font-bold">--/--/--</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 pt-4 border-t-2 border-dashed border-gray-300 text-center">
+                    <p class="text-[10px] text-gray-400 mb-4">Non-refundable • Valid for one entry</p>
+                    <div class="no-print space-y-2">
+                        <button onclick="window.print()" class="w-full bg-black text-white py-2 font-bold rounded">PRINT TICKET</button>
+                        <button onclick="location.reload()" class="w-full border border-black py-2 text-sm font-medium rounded">CREATE ANOTHER</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
 
     <script>
-        // --- 1. CONFIGURATION ---
-        const SB_URL = 'https://zlprzfbqxzlqlchyophw.supabase.co';
-        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpscHJ6ZmJxeHpscWxjaHlvcGh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2NzQwMDksImV4cCI6MjA5MjI1MDAwOX0.xm-M-F3QruxEkbf7q3FKwE4E8n8xfCWskLeLLHTtoFE'; // <--- PASTE YOUR KEY FROM IMAGE_82F087.PNG HERE
-        const ADMIN_PASS = "1234"; // <--- SET YOUR ADMIN PASSWORD HERE
-        const MY_UPI_ID = "8639581587-4@ybl"; // <--- CHANGE THIS TO YOUR ACTUAL UPI ID (e.g. 9876543210@ybl)
-
+        // CONFIGURATION
+        const SB_URL = 'https://zlprzfbqxzldlchyophw.supabase.co'; // Clean URL
+        const SB_KEY = 'YOUR_SUPABASE_ANON_KEY'; // PASTE YOUR KEY HERE
+        
         const _db = supabase.createClient(SB_URL, SB_KEY);
 
-        // --- 2. CORE FUNCTIONS ---
-
+        // 1. Fetch and Display Events on load
         async function fetchEvents() {
-            const { data, error } = await _db.from('events').select('*').order('created_at', { ascending: false });
-            const list = document.getElementById('eventList');
-            if (error) { list.innerHTML = "Connection Error"; return; }
-            
-            list.innerHTML = data.length ? '' : '<p class="text-gray-600 italic">No events posted yet.</p>';
-            data.forEach(item => {
-                list.innerHTML += `
-                <div class="bg-gray-900 p-5 rounded-2xl border-l-4 border-yellow-600 text-left flex justify-between items-center">
+            const container = document.getElementById('events-container');
+            const { data, error } = await _db
+                .from('events')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                container.innerHTML = `<p class="text-red-500">Error loading events</p>`;
+                return;
+            }
+
+            if (data.length === 0) {
+                container.innerHTML = `<p class="text-gray-500 italic">No events live yet.</p>`;
+                return;
+            }
+
+            container.innerHTML = data.map(event => `
+                <div class="bg-gray-900 border border-gray-800 p-4 rounded flex justify-between items-center">
                     <div>
-                        <h3 class="text-lg font-bold text-white">${item.title}</h3>
-                        <p class="text-[10px] text-gray-500 uppercase tracking-widest">${new Date(item.created_at).toLocaleDateString()}</p>
+                        <h3 class="font-bold text-yellow-500">${event.name}</h3>
+                        <p class="text-sm text-gray-400">Entry: ₹${event.price}</p>
                     </div>
-                    <button onclick="issueTicket('${item.id}', '${item.title}')" class="bg-yellow-600 text-black text-[10px] font-black px-4 py-2 rounded-lg">GET TICKET</button>
-                </div>`;
-            });
+                    <span class="text-[10px] bg-green-900 text-green-300 px-2 py-1 rounded uppercase">Active</span>
+                </div>
+            `).join('');
         }
 
-        async function addEvent() {
-            const pass = document.getElementById('adminPassword').value;
-            const title = document.getElementById('eventTitle').value;
+        // 2. Publish Event Logic
+        async function publishEvent() {
+            const name = document.getElementById('eventName').value;
+            const price = document.getElementById('eventPrice').value;
+            const btn = document.getElementById('publishBtn');
 
-            if (pass !== ADMIN_PASS) return alert("Wrong Admin Password!");
-            if (!title) return alert("Enter Event Title");
-
-            const { error } = await _db.from('events').insert([{ title }]);
-            if (error) alert("Database Error: " + error.message);
-            else {
-                document.getElementById('eventTitle').value = '';
-                document.getElementById('adminPassword').value = '';
-                fetchEvents();
+            if (!name || !price) {
+                alert("Please fill in all fields");
+                return;
             }
-        }
 
-        async function issueTicket(eventId, eventTitle) {
-            const name = prompt(`Booking for: ${eventTitle}\nEnter Guest Name:`);
-            if (!name) return;
+            btn.innerText = "PUBLISHING...";
+            btn.disabled = true;
 
-            const { data, error } = await _db.from('tickets').insert([{ event_id: eventId, customer_name: name }]).select();
-            
-            if (data && data[0]) {
-                showQR(data[0].customer_name, data[0].id);
+            const { data, error } = await _db
+                .from('events')
+                .insert([{ name: name, price: price }])
+                .select();
+
+            if (error) {
+                alert("Error: " + error.message);
+                btn.innerText = "PUBLISH EVENT";
+                btn.disabled = false;
             } else {
-                alert("Error generating ticket. Check connection.");
+                // Success: Show the ticket
+                showTicket(data[0]);
+                fetchEvents(); // Update list in background
             }
         }
 
-        function showQR(guestName, ticketId) {
-            document.getElementById('ticketGuestName').innerText = guestName;
-            const modal = document.getElementById('paymentModal');
-            modal.classList.remove('hidden');
+        // 3. UI Switch to Ticket
+        function showTicket(event) {
+            document.getElementById('ticketTitle').innerText = event.name;
+            document.getElementById('ticketPriceDisplay').innerText = "₹" + event.price;
+            document.getElementById('ticketDate').innerText = new Date().toLocaleDateString();
 
-            // Generate UPI Link: Amount 100, Currency INR
-            const upiString = `upi://pay?pa=${MY_UPI_ID}&pn=KingdomPub&am=100&cu=INR&tn=TicketID_${ticketId}`;
-
-            QRCode.toCanvas(document.getElementById('qrcodeCanvas'), upiString, {
-                width: 200,
-                margin: 2
-            }, function (error) {
-                if (error) console.error(error);
-            });
+            // Hide Form, Show Ticket
+            document.getElementById('admin-section').classList.add('hidden');
+            document.getElementById('ticket-section').classList.remove('hidden');
         }
 
-        function closeModal() {
-            document.getElementById('paymentModal').classList.add('hidden');
-            alert("Thank you! Your ticket ID is saved in our system. We will verify your payment at the entrance.");
-        }
-
-        // Initial Load
+        // Initialize
         fetchEvents();
     </script>
 </body>
